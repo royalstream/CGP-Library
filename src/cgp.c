@@ -3261,11 +3261,12 @@ DLL_EXPORT struct chromosome* runCGP(struct parameters *params, struct dataSet *
 		exit(0);
 	}
 
+	/* Leave this validation for the fitness function
 	if (data != NULL && params->numOutputs != data->numOutputs) {
 		printf("Error: The number of outputs specified in the dataSet (%d) does not match the number of outputs specified in the parameters (%d).\n", data->numOutputs, params->numOutputs);
 		printf("Terminating CGP-Library.\n");
 		exit(0);
-	}
+	} */
 
 	/* initialise parent chromosomes */
 	parentChromos = (struct chromosome**)malloc(params->mu * sizeof(struct chromosome*));
