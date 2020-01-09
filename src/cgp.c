@@ -107,6 +107,7 @@ struct dataSet {
 	int numOutputs;
 	double **inputData;
 	double **outputData;
+	int dataOwner;
 };
 
 struct results {
@@ -2281,12 +2282,9 @@ static void sortChromosomeArray(struct chromosome **chromoArray, int numChromos)
 
 
 /*
-	Initialises data structure and assigns values for given arrays
-	arrays must take the form
-	inputs[numSamples][numInputs]
-	outputs[numSamples][numOutputs]
+	used by initialiseDataSetFromArrays and initialiseDataSetFromArraysNoCopy
 */
-DLL_EXPORT struct dataSet *initialiseDataSetFromArrays(int numInputs, int numOutputs, int numSamples, double *inputs, double *outputs) {
+struct dataSet *dsFromArrays(int numInputs, int numOutputs, int numSamples, double *inputs, double *outputs, int copyData) {
 
 	int i, j;
 	struct dataSet *data;
@@ -2300,24 +2298,51 @@ DLL_EXPORT struct dataSet *initialiseDataSetFromArrays(int numInputs, int numOut
 
 	data->inputData = (double**)malloc(data->numSamples * sizeof(double*));
 	data->outputData = (double**)malloc(data->numSamples * sizeof(double*));
+	data->dataOwner = copyData;
 
-	for (i = 0; i < data->numSamples; i++) {
+	if (copyData > 0) {
+		for (i = 0; i < data->numSamples; i++) {
 
-		data->inputData[i] = (double*)malloc(data->numInputs * sizeof(double));
-		data->outputData[i] = (double*)malloc(data->numOutputs * sizeof(double));
+			data->inputData[i] = (double*)malloc(data->numInputs * sizeof(double));
+			data->outputData[i] = (double*)malloc(data->numOutputs * sizeof(double));
 
-		for (j = 0; j < data->numInputs; j++) {
-			data->inputData[i][j] = inputs[(i * data->numInputs) + j];
+			for (j = 0; j < data->numInputs; j++) {
+				data->inputData[i][j] = inputs[(i * data->numInputs) + j];
+			}
+
+			for (j = 0; j < data->numOutputs; j++) {
+				data->outputData[i][j] = outputs[(i * data->numOutputs) + j];
+			}
 		}
-
-		for (j = 0; j < data->numOutputs; j++) {
-			data->outputData[i][j] = outputs[(i * data->numOutputs) + j];
+	} else {
+		for (i = 0; i < data->numSamples; i++) {
+			data->inputData[i] = (double*)&inputs[i * data->numInputs];
+			data->outputData[i] = (double*)&outputs[i * data->numOutputs];
 		}
 	}
 
 	return data;
 }
 
+/*
+	Initialises data structure and assigns values for given arrays
+	arrays must take the form
+	inputs[numSamples][numInputs]
+	outputs[numSamples][numOutputs]
+*/
+DLL_EXPORT struct dataSet *initialiseDataSetFromArrays(int numInputs, int numOutputs, int numSamples, double *inputs, double *outputs) {
+	return dsFromArrays(numInputs, numOutputs, numSamples, inputs, outputs, 1);
+}
+
+/*
+	Initialises data structure and assigns values for given arrays
+	arrays must take the form
+	inputs[numSamples][numInputs]
+	outputs[numSamples][numOutputs]
+*/
+DLL_EXPORT struct dataSet *initialiseDataSetFromArraysNoCopy(int numInputs, int numOutputs, int numSamples, double *inputs, double *outputs) {
+	return dsFromArrays(numInputs, numOutputs, numSamples, inputs, outputs, 0);
+}
 
 /*
 	Initialises data structure and assigns values of given file
@@ -2354,6 +2379,7 @@ DLL_EXPORT struct dataSet *initialiseDataSetFromFile(char const *file) {
 
 			data->inputData = (double**)malloc(data->numSamples * sizeof(double*));
 			data->outputData = (double**)malloc(data->numSamples * sizeof(double*));
+			data->dataOwner = 1;
 
 			for (i = 0; i < data->numSamples; i++) {
 				data->inputData[i] = (double*)malloc(data->numInputs * sizeof(double));
@@ -2412,9 +2438,11 @@ DLL_EXPORT void freeDataSet(struct dataSet *data) {
 		return;
 	}
 
-	for (i = 0; i < data->numSamples; i++) {
-		free(data->inputData[i]);
-		free(data->outputData[i]);
+	if(data->dataOwner) {
+		for (i = 0; i < data->numSamples; i++) {
+			free(data->inputData[i]);
+			free(data->outputData[i]);
+		}
 	}
 
 	free(data->inputData);

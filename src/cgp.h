@@ -1510,6 +1510,15 @@ DLL_EXPORT int getChromosomeGenerations(struct chromosome *chromo);
 */
 DLL_EXPORT struct dataSet *initialiseDataSetFromArrays(int numInputs, int numOutputs, int numSamples, double *inputs, double *outputs);
 
+/*
+	Function: initialiseDataSetFromArraysNoCopy
+
+	Equivalent to initialiseDataSetFromArrays but the data is not copied, only referenced.
+
+	See Also:
+		<initialiseDataSetFromArrays>
+*/
+DLL_EXPORT struct dataSet *initialiseDataSetFromArraysNoCopy(int numInputs, int numOutputs, int numSamples, double *inputs, double *outputs);
 
 /*
 	Function: initialiseDataSetFromFile
