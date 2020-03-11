@@ -781,6 +781,13 @@ DLL_EXPORT void setCustomReproductionScheme(struct parameters *params, void
 		(*reproductionScheme)(struct parameters *params, struct chromosome **parents, struct chromosome **children, int numParents, int numChildren), char const *reproductionSchemeName);
 
 
+/*
+	Function: setCustomEarlyStop
+
+		Documentation pending.
+*/
+DLL_EXPORT void setCustomEarlyStop(struct parameters *params, int (*earlyStop)(int gen, double fitness));
+
 
 /*
 	Function: setTargetFitness

@@ -65,6 +65,7 @@ struct parameters {
 	char selectionSchemeName[SELECTIONSCHEMENAMELENGTH];
 	void (*reproductionScheme)(struct parameters *params, struct chromosome **parents, struct chromosome **children, int numParents, int numChildren);
 	char reproductionSchemeName[REPRODUCTIONSCHEMENAMELENGTH];
+	int (*earlyStop)(int gen, double fitness);
 	int numThreads;
 };
 
@@ -169,6 +170,7 @@ static double _mul(const int numInputs, const double *inputs, const double *conn
 static double _divide(const int numInputs, const double *inputs, const double *connectionWeights);
 static double _and(const int numInputs, const double *inputs, const double *connectionWeights);
 static double _absolute(const int numInputs, const double *inputs, const double *connectionWeights);
+static double _relu(const int numInputs, const double *inputs, const double *connectionWeights);
 static double _squareRoot(const int numInputs, const double *inputs, const double *connectionWeights);
 static double _square(const int numInputs, const double *inputs, const double *connectionWeights);
 static double _cube(const int numInputs, const double *inputs, const double *connectionWeights);
@@ -394,6 +396,9 @@ static int addPresetFunctionToFunctionSet(struct parameters *params, char const 
 	else if (strncmp(functionName, "abs", FUNCTIONNAMELENGTH) == 0) {
 		addCustomNodeFunction(params, _absolute, "abs", 1);
 	}
+    else if (strncmp(functionName, "relu", FUNCTIONNAMELENGTH) == 0) {
+        addCustomNodeFunction(params, _relu, "relu", 1);
+    }
 	else if (strncmp(functionName, "sqrt", FUNCTIONNAMELENGTH) == 0) {
 		addCustomNodeFunction(params, _squareRoot, "sqrt", 1);
 	}
@@ -709,6 +714,14 @@ DLL_EXPORT void setCustomReproductionScheme(struct parameters *params, void (*re
 		params->reproductionScheme = reproductionScheme;
 		strncpy(params->reproductionSchemeName, reproductionSchemeName, REPRODUCTIONSCHEMENAMELENGTH);
 	}
+}
+
+
+/*
+    Documentation pending.
+ */
+DLL_EXPORT void setCustomEarlyStop(struct parameters *params, int (*earlyStop)(int gen, double fitness)) {
+    params->earlyStop = earlyStop;
 }
 
 
@@ -1552,6 +1565,17 @@ static void saveChromosomeLatexRecursive(struct chromosome *chromo, int index, F
 		fprintf(fp, " \\right|");
 
 	}
+
+	/* relu */
+    else if (strncmp(chromo->funcSet->functionNames[chromo->nodes[index - chromo->numInputs]->function], "relu", FUNCTIONNAMELENGTH) == 0 ) {
+
+        fprintf(fp, " \\relu{");
+
+        saveChromosomeLatexRecursive(chromo, chromo->nodes[index - chromo->numInputs]->inputs[0], fp);
+
+        fprintf(fp, " }");
+
+    }
 
 	/* sqrt */
 	else if (strncmp(chromo->funcSet->functionNames[chromo->nodes[index - chromo->numInputs]->function], "sqrt", FUNCTIONNAMELENGTH) == 0 ) {
@@ -3240,7 +3264,7 @@ DLL_EXPORT struct results* repeatCGP(struct parameters *params, struct dataSet *
 	printf("Run\tFitness\t\tGenerations\tActive Nodes\n");
 
 	/* for each run */
-	#pragma omp parallel for default(none), shared(numRuns,rels,params,data,numGens), schedule(dynamic), num_threads(params->numThreads)
+	// #pragma omp parallel for default(none), shared(numRuns,rels,params,data,numGens), schedule(dynamic), num_threads(params->numThreads)
 	for (i = 0; i < numRuns; i++) {
 
 		/* run cgp */
@@ -3347,7 +3371,7 @@ DLL_EXPORT struct chromosome* runCGP(struct parameters *params, struct dataSet *
 	for (gen = 0; gen < numGens; gen++) {
 
 		/* set fitness of the children of the population */
-		#pragma omp parallel for default(none), shared(params, childrenChromos,data), schedule(dynamic), num_threads(params->numThreads)
+		// #pragma omp parallel for default(none), shared(params, childrenChromos,data), schedule(dynamic), num_threads(params->numThreads)
 		for (i = 0; i < params->lambda; i++) {
 			setChromosomeFitness(params, childrenChromos[i], data);
 		}
@@ -3368,6 +3392,7 @@ DLL_EXPORT struct chromosome* runCGP(struct parameters *params, struct dataSet *
 		/* display progress to the user at the update frequency specified */
 		if (params->updateFrequency != 0 && (gen % params->updateFrequency == 0 || gen >= numGens - 1) ) {
 			printf("%d\t%f\n", gen, bestChromo->fitness);
+            if(params->earlyStop != NULL && params->earlyStop(gen, bestChromo->fitness)) break;
 		}
 
 		/*
@@ -3732,6 +3757,14 @@ static double _divide(const int numInputs, const double *inputs, const double *c
 static double _absolute(const int numInputs, const double *inputs, const double *connectionWeights) {
 
 	return fabs(inputs[0]);
+}
+
+/*
+	Node function relu. Returns the rectified linear activation
+*/
+static double _relu(const int numInputs, const double *inputs, const double *connectionWeights) {
+
+    return inputs[0] > 0 ? inputs[0] : 0;
 }
 
 
